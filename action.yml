@@ -1,4 +1,5 @@
 name: lcc env
+description: 'Simple action to build and tests e2k code. This action install lcc crosscompiler and qemu-e2k emulator.'
 
 on:
   push:
