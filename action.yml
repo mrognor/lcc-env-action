@@ -1,26 +1,28 @@
 name: lcc env
-
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
-jobs:
-  lcc_env:
-    env:
-      lcc_link: https://dev.mcst.ru/downloads/2025-03-30/cross-sp-rel-1.27.21.e2k-v5.5.10_64.tgz
-      lcc_tarname: cross-sp-rel-1.27.21.e2k-v5.5.10_64.tgz
-      lcc_dirname: lcc-1.27.21.e2k-v5.5.10
-
-    name: Install lcc and qemu-e2k
-    runs-on: ubuntu-latest
-
-    steps:
+description: Simple action to build and tests e2k code. This action install lcc crosscompiler and qemu-e2k emulator.
+author: mrognor
+inputs:
+  lcc_link:
+    required: false
+    description: Base crosscompiler link
+    default: https://dev.mcst.ru/downloads/2025-03-30/cross-sp-rel-1.27.21.e2k-v5.5.10_64.tgz
+  lcc_tarname:
+    required: false
+    description: Crosscompiler tar archive name
+    default: cross-sp-rel-1.27.21.e2k-v5.5.10_64.tgz
+  lcc_dirname:
+    required: false
+    description: Archive dirname
+    default: lcc-1.27.21.e2k-v5.5.10
+    
+runs:
+  using: composite
+  steps:
     - uses: actions/checkout@v4
 
     # Install all requirements
     - name: Install packages
+      shell: bash
       run: |
         sudo apt-get update -y 
         sudo apt-get upgrade -y 
@@ -28,90 +30,48 @@ jobs:
 
     # Install lcc crosscompiler
     - name: Download lcc
-      run: wget ${lcc_link}
+      shell: bash
+      run: wget ${{ inputs.lcc_link }}
 
     - name: Unzip lcc
-      run: tar -xzvf ${lcc_tarname}
+      shell: bash
+      run: tar -xzvf ${{ inputs.lcc_tarname }}
 
     - name: Install lcc
+      shell: bash
       run: mv ./opt/mcst /opt
 
     - name: Clear after lcc install
-      run: rm -rf ${lcc_tarname} opt
+      shell: bash
+      run: rm -r ${{ inputs.lcc_tarname }} opt
 
     - name: Add lcc bin dir to PATH
-      # run: sudo sed -i "/^PATH=/s/$/:\/opt\/mcst\/${lcc_dirname}\/bin/" /etc/environment
+      shell: bash
       run: |
-        ln -sf /opt/mcst/${lcc_dirname}/bin/lcc /usr/local/bin/lcc
-        ln -sf /opt/mcst/${lcc_dirname}/bin/l++ /usr/local/bin/l++
+        ln -sf /opt/mcst/${{ inputs.lcc_dirname }}/bin/lcc /usr/local/bin/lcc
+        ln -sf /opt/mcst/${{ inputs.lcc_dirname }}/bin/l++ /usr/local/bin/l++
 
     # Install qemu-e2k
     - name: Clone qemu-e2k
+      shell: bash
       run: git clone https://github.com/OpenE2K/qemu-e2k.git && cd qemu-e2k && git checkout e2k
 
     - name: Configure qemu-e2k
+      shell: bash
       run: cd qemu-e2k && mkdir build && cd build && ../configure --target-list=e2k-linux-user --static --disable-capstone --disable-werror
 
     - name: Build qemu-e2k
+      shell: bash
       run: cd qemu-e2k/build && nice ninja 
       
     - name: Install qemu-e2k
+      shell: bash
       run: |
         cp qemu-e2k/build/qemu-e2k /usr/local/bin
         echo "#!/bin/bash" > /usr/local/bin/e2k
-        echo "qemu-e2k -L /opt/mcst/${lcc_dirname}/fs \$1" >> /usr/local/bin/e2k
+        echo "qemu-e2k -L /opt/mcst/${{ inputs.lcc_dirname }}/fs \$1" >> /usr/local/bin/e2k
         chmod +x /usr/local/bin/e2k
 
     - name: Clear qemu-e2k
+      shell: bash
       run: rm -r qemu-e2k
-
-    # Save all files to cache
-    - uses: actions/cache@v4
-      with:
-        path: | 
-          /opt/mcst
-          /usr/local/bin/e2k
-          /usr/local/bin/qemu-e2k
-          /usr/local/bin/lcc
-          /usr/local/bin/l++
-        key: cache-${{ github.run_id }}-${{ github.run_attempt }}
-
-
-  build:
-    needs: lcc_env
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - uses: actions/cache/restore@v4
-      with:
-        path: | 
-          /opt/mcst
-          /usr/local/bin/e2k
-          /usr/local/bin/qemu-e2k
-          /usr/local/bin/lcc
-          /usr/local/bin/l++
-        key: cache-${{ github.run_id }}-${{ github.run_attempt }}
-
-    - name: Make gcc-amd64
-      run: make && mkdir gcc-amd64 && mv main gcc-amd64
-
-    - name: Run tests on amd64  
-      run: ./gcc-amd64/main
-
-    - name: Make lcc-e2k
-      run: |
-        export CXX=l++
-        export CC=lcc
-        make
-        mkdir lcc-e2k
-        mv main lcc-e2k
-
-    - name: Run tests on e2k
-      run: e2k ./lcc-e2k/main
-
-    - uses: actions/upload-artifact@v4
-      with:
-        name: BuildArtifacts
-        path: .
