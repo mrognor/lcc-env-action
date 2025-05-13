@@ -5,15 +5,15 @@ inputs:
   lcc_link:
     required: false
     description: Base crosscompiler link
-    default: https://dev.mcst.ru/downloads/2025-03-30/cross-sp-rel-1.27.21.e2k-v5.5.10_64.tgz
+    default: https://dev.mcst.ru/downloads/2025-05-12/cross-sp-rel-1.27.23.e2k-v5.5.10_64.tgz
   lcc_tarname:
     required: false
     description: Crosscompiler tar archive name
-    default: cross-sp-rel-1.27.21.e2k-v5.5.10_64.tgz
+    default: cross-sp-rel-1.27.23.e2k-v5.5.10_64.tgz
   lcc_dirname:
     required: false
     description: Archive dirname
-    default: lcc-1.27.21.e2k-v5.5.10
+    default: lcc-1.27.23.e2k-v5.5.10
     
 runs:
   using: composite
