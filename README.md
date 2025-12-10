@@ -25,7 +25,7 @@ After that, you can compile the code using the lcc and l++ commands, and then ru
     - uses: actions/checkout@v4
 
     - name: lcc env
-      uses: mrognor/lcc-env-action@0.1.0
+      uses: mrognor/lcc-env-action@0.1.1
 
     - name: Build e2k code
       run: l++ main.cpp
@@ -43,7 +43,7 @@ After that, you can compile the code using the lcc and l++ commands, and then ru
     - uses: actions/checkout@v4
 
     - name: lcc env
-      uses: mrognor/lcc-env-action@0.1.0
+      uses: mrognor/lcc-env-action@0.1.1
 
     - name: Build e2k code
       run: |
