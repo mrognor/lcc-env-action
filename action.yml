@@ -20,58 +20,72 @@ runs:
   steps:
     - uses: actions/checkout@v4
 
-    # Install all requirements
-    - name: Install packages
+    # Get lcc from github actions cache or download it from mcst.dev and save to cache
+    - name: Cache lcc crosscompiler
+      id: cache-lcc
+      uses: actions/cache@v4
+      env:
+        cache-name: cache-lcc
+      with:
+        path: /opt/mcst
+        key: ${{ env.cache-name }}-${{ inputs.lcc_dirname }}
+
+    - if: ${{ steps.cache-lcc.outputs.cache-hit != 'true' }}
+      name: Install lcc
+      continue-on-error: false
+      shell: bash
+      run: |
+          wget -q ${{ inputs.lcc_link }}
+          tar -xzf ${{ inputs.lcc_tarname }} -C /tmp
+          mv /tmp/opt/mcst /opt
+          rm -r ${{ inputs.lcc_tarname }} /tmp/opt
+
+    # Get qemu-e2k from github actions cache or download from github, build it and save to cache
+    - name: Retreive last qemu-e2k version
+      shell: bash
+      run: echo "QEMU_E2K_HASH=$(git ls-remote https://github.com/OpenE2K/qemu-e2k.git HEAD | awk '{print $1}')" >> $GITHUB_ENV
+
+    - name: Cache qemu-e2k bin
+      id: cache-qemu-e2k
+      uses: actions/cache@v4
+      env:
+        cache-name: cache-qemu-e2k
+      with:
+        path: |
+          /usr/local/bin/qemu-e2k
+        key: ${{ env.cache-name }}-${{ env.QEMU_E2K_HASH }}
+
+    - if: ${{ steps.cache-qemu-e2k.outputs.cache-hit != 'true' }}
+      name: Install qemu-e2k
+      continue-on-error: false
       shell: bash
       run: |
         sudo apt-get update -y 
         sudo apt-get upgrade -y 
-        sudo apt-get install -y build-essential ninja-build git python3 python3-pip pkg-config libglib2.0-dev && pip install tomli
+        sudo apt-get install -y build-essential ninja-build git python3 python3-pip pkg-config libglib2.0-dev
+        pip install tomli
+        git clone https://github.com/OpenE2K/qemu-e2k.git
+        cd qemu-e2k
+        git checkout e2k
+        mkdir build
+        cd build
+        ../configure --target-list=e2k-linux-user --static --disable-capstone --disable-werror
+        nice ninja
+        cp qemu-e2k /usr/local/bin
+        cd ../..
+        rm -r qemu-e2k
 
-    # Install lcc crosscompiler
-    - name: Download lcc
-      shell: bash
-      run: wget ${{ inputs.lcc_link }}
-
-    - name: Unzip lcc
-      shell: bash
-      run: tar -xzvf ${{ inputs.lcc_tarname }}
-
-    - name: Install lcc
-      shell: bash
-      run: mv ./opt/mcst /opt
-
-    - name: Clear after lcc install
-      shell: bash
-      run: rm -r ${{ inputs.lcc_tarname }} opt
-
+    # Add symlinks to lcc
     - name: Add lcc bin dir to PATH
       shell: bash
       run: |
         ln -sf /opt/mcst/${{ inputs.lcc_dirname }}/bin/lcc /usr/local/bin/lcc
         ln -sf /opt/mcst/${{ inputs.lcc_dirname }}/bin/l++ /usr/local/bin/l++
-
-    # Install qemu-e2k
-    - name: Clone qemu-e2k
-      shell: bash
-      run: git clone https://github.com/OpenE2K/qemu-e2k.git && cd qemu-e2k && git checkout e2k
-
-    - name: Configure qemu-e2k
-      shell: bash
-      run: cd qemu-e2k && mkdir build && cd build && ../configure --target-list=e2k-linux-user --static --disable-capstone --disable-werror
-
-    - name: Build qemu-e2k
-      shell: bash
-      run: cd qemu-e2k/build && nice ninja 
-      
-    - name: Install qemu-e2k
+    
+    # Add short wrapper to qemu-e2k
+    - name: Create e2k script
       shell: bash
       run: |
-        cp qemu-e2k/build/qemu-e2k /usr/local/bin
         echo "#!" > /usr/local/bin/e2k
         echo "qemu-e2k -L /opt/mcst/${{ inputs.lcc_dirname }}/fs -- \"\$@\"" >> /usr/local/bin/e2k
         chmod +x /usr/local/bin/e2k
-
-    - name: Clear qemu-e2k
-      shell: bash
-      run: rm -r qemu-e2k
