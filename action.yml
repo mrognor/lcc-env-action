@@ -18,12 +18,12 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     # Get lcc from github actions cache or download it from mcst.dev and save to cache
     - name: Cache lcc crosscompiler
       id: cache-lcc
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       env:
         cache-name: cache-lcc
       with:
@@ -47,7 +47,7 @@ runs:
 
     - name: Cache qemu-e2k bin
       id: cache-qemu-e2k
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       env:
         cache-name: cache-qemu-e2k
       with:
