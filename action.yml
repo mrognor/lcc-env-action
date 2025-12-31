@@ -60,7 +60,7 @@ runs:
       shell: bash
       env:
         # https://dev.mcst.ru/downloads/2025-12-26/qemu-e2k-static.sha512
-        sha512: 4ce9a9e6a29f3ad55e57cd5565560bc2b51dfb4b725141b475505596d71d4e381063a00c4256c553e911aecbd03963f65a14c2d299f7d6af6ac0d09982b59a00
+        sha512: 4ce9a9e6a29f3ad55e57cd5565560bc2b51dfb4b725141b475505596d71d4e381063a00c4256c553e911aecbd03963f65a14c2d299f7d6af6ac0d09982b59a01
       run: |
         wget -q ${{ inputs.qemu_e2k_static_link }}
         shasum -a 512 qemu-e2k-static
