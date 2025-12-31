@@ -47,6 +47,7 @@ runs:
     - name: Cache qemu-e2k-static
       id: cache-qemu-e2k-static
       uses: actions/cache@v5
+      env:
         cache-name: cache-qemu-e2k-static-2025-12-26
       with:
         path: |
