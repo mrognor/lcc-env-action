@@ -6,6 +6,12 @@ inputs:
     required: false
     description: Base crosscompiler link
     default: https://dev.mcst.ru/downloads/2025-05-12/cross-sp-rel-1.27.23.e2k-v5.5.10_64.tgz
+  lcc_link-sha512:
+    required: false
+    description: Hash from https://dev.mcst.ru/downloads/2025-05-12/\
+      cross-sp-rel-1.27.23.e2k-v5.5.10_64.tgz.sha512
+    default: 5609da5afcc3b6d072786a4eb9799ce277767ec80fcc108ee276ec5af8bca581\
+      1ffefa692f37e45196bcdcf87b109701bfb04c71ae0c25dfffc1f90437bd07fe
   lcc_tarname:
     required: false
     description: Crosscompiler tar archive name
@@ -18,20 +24,38 @@ inputs:
     required: false
     description: Link to qemu-user emulator
     default: https://dev.mcst.ru/downloads/2025-12-26/qemu-e2k-static
+  qemu_e2k_static_link-date:
+    required: false
+    description: Date of published version qemu-user emulator (for cache)
+    default: 2025-12-26
+  qemu_e2k_static_link-sha512:
+    required: false
+    description: Hash from https://dev.mcst.ru/downloads/2025-12-26/\
+      qemu-e2k-static.sha512
+    default: 4ce9a9e6a29f3ad55e57cd5565560bc2b51dfb4b725141b475505596d71d4e38\
+      1063a00c4256c553e911aecbd03963f65a14c2d299f7d6af6ac0d09982b59a01
 runs:
   using: composite
   steps:
     - uses: actions/checkout@v6
 
+    - name: "Cache parameters: keys & paths"
+      id: cp
+      shell: bash
+      run: |
+        ( echo "lcc-path=/opt/mcst
+          echo "lcc-key=${{ env.cache-name }}-${{ inputs.lcc_dirname }}"
+          echo "e2k-key=/usr/local/bin/qemu-e2k-static"
+          echo "e2k-key=cache-qemu-e2k-static-${{ qemu_e2k_static_link-date }}"
+        ) >> $GITHUB_OUTPUT
+
     # Get lcc from github actions cache or download it from mcst.dev and save to cache
-    - name: Cache lcc crosscompiler
+    - name: Restore cache lcc crosscompiler
       id: cache-lcc
-      uses: actions/cache@v5
-      env:
-        cache-name: cache-lcc
+      uses: actions/cache/restore@v5
       with:
-        path: /opt/mcst
-        key: ${{ env.cache-name }}-${{ inputs.lcc_dirname }}
+        path: ${{ steps.cp.outputs.lcc-path }}
+        key: ${{ steps.cp.outputs.lcc-key }}
 
     - if: ${{ steps.cache-lcc.outputs.cache-hit != 'true' }}
       name: Install lcc
@@ -39,20 +63,27 @@ runs:
       shell: bash
       run: |
           wget -q ${{ inputs.lcc_link }}
+          shasum -a 512 ${{ inputs.lcc_tarname }}  # TODO
+          echo "${{ inputs.lcc_link-sha512 }}  ${{ inputs.lcc_tarname }}" \
+            | shasum --strict -a 512 -c -
           tar -xzf ${{ inputs.lcc_tarname }} -C /tmp
           mv /tmp/opt/mcst /opt
           rm -r ${{ inputs.lcc_tarname }} /tmp/opt
 
-    # Get qemu-e2k-static from github actions cache or download from mcst.dev and save to cache
-    - name: Cache qemu-e2k-static
-      id: cache-qemu-e2k-static
-      uses: actions/cache@v5
-      env:
-        cache-name: cache-qemu-e2k-static
+    - name: Save cached lcc crosscompiler
+      if: steps.cache-lcc.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
       with:
-        path: |
-          /usr/local/bin/qemu-e2k-static
-        key: ${{ env.cache-name }}
+        path: ${{ steps.cp.outputs.lcc-path }}
+        key: ${{ steps.cp.outputs.lcc-key }}
+
+    # Get qemu-e2k-static from github actions cache or download from mcst.dev and save to cache
+    - name: Restore cache qemu-e2k-static
+      id: cache-qemu-e2k-static
+      uses: actions/cache/restore@v5
+      with:
+        key: ${{ steps.cp.outputs.e2k-path }}
+        path: ${{ steps.cp.outputs.e2k-key }}
 
     - if: ${{ steps.cache-qemu-e2k-static.outputs.cache-hit != 'true' }}
       name: Install qemu-e2k-static
@@ -60,8 +91,18 @@ runs:
       shell: bash
       run: |
         wget -q ${{ inputs.qemu_e2k_static_link }}
+        shasum -a 512 qemu-e2k-static  # TODO
+        echo "${{ inputs.qemu_e2k_static_link-sha512 }}  qemu-e2k-static" \
+          | shasum --strict -a 512 -c -
         chmod +x qemu-e2k-static
         mv qemu-e2k-static /usr/local/bin
+
+    - name: Save cached qemu-e2k-static
+      if: steps.cache-qemu-e2k-static.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        key: ${{ steps.cp.outputs.e2k-path }}
+        path: ${{ steps.cp.outputs.e2k-key }}
 
     # Add symlinks to lcc
     - name: Add lcc bin dir to PATH
