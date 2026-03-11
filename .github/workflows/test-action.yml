@@ -7,9 +7,9 @@ name: Tests `lcc-env-action`
 
 on:  # yamllint disable-line rule:truthy
   push:
-    branches: ["main"]
+    branches: ["restore-save"]  # TODO
   pull_request:
-    branches: ["main"]
+    branches: ["restore-save"]  # TODO
 
 jobs:
   build:
