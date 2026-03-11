@@ -1,0 +1,51 @@
+---
+# vim:set sw=2 ts=8 et fileencoding=utf8:
+# SPDX-License-Identifier: BSD-2-Clause
+# SPDX-FileCopyrightText: 2026 Сергей Леонтьев (leo@sai.msu.ru)
+
+name: Tests `lcc-env-action`
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-22.04, ubuntu-latest, ubuntu-slim]
+        lcc_version: [1.29.12, 1.27.23]
+        qemu_e2k_version: ["1.0", "1.1"]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Test action
+        uses: ./
+        with:
+          lcc_version: ${{ matrix.lcc_version }}
+          qemu_e2k_version: ${{ matrix.qemu_e2k_version }}
+
+      - name: Test install lcc
+        run: |
+          lcc -DTEST_DEFINITIONS tests/hello.c -o hello.elf
+          lcc tests/simple_false.c -o simple_false.elf
+
+      - name: Test install l++
+        run: |
+          l++ -DTEST_DEFINITIONS tests/hello++.cpp -o hello++.elf
+
+      - name: Test install e2k
+        run: |
+          e2k hello.elf
+          e2k hello++.elf
+          if e2k simple_false.elf ; then
+            echo "simple_false.elf: must have non zero exit code" 1>&2
+            false
+          else
+            true
+          fi

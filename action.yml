@@ -1,79 +1,190 @@
+---
 name: lcc env
 description: Simple action to build and tests e2k code. This action install lcc crosscompiler and qemu-e2k-static emulator.
 author: mrognor
 inputs:
+  lcc_version:
+    required: false
+    description: lcc version
+    default: 1.29.12
+  qemu_e2k_version:
+    required: false
+    description: e2k version (qemu-user/qemu_e2k)
+    default: "1.1"
   lcc_link:
     required: false
     description: Base crosscompiler link
-    default: https://dev.mcst.ru/downloads/2025-05-12/cross-sp-rel-1.27.23.e2k-v5.5.10_64.tgz
+  lcc_sha512:
+    required: false
+    description: SHA512 hash from crosscompiler
   lcc_tarname:
     required: false
     description: Crosscompiler tar archive name
-    default: cross-sp-rel-1.27.23.e2k-v5.5.10_64.tgz
   lcc_dirname:
     required: false
     description: Archive dirname
-    default: lcc-1.27.23.e2k-v5.5.10
   qemu_e2k_static_link:
     required: false
     description: Link to qemu-user emulator
-    default: https://dev.mcst.ru/downloads/2025-12-26/qemu-e2k-static
+  qemu_e2k_static_date:
+    required: false
+    description: Date of published version qemu-user emulator (for cache)
+  qemu_e2k_static_sha512:
+    required: false
+    description: SHA512 hash from qemu-user emulator
 runs:
   using: composite
   steps:
     - uses: actions/checkout@v6
 
+    - name: "Cache parameters: keys & paths"
+      id: cp
+      shell: bash
+      run: |
+        d="https://dev.mcst.ru/downloads"
+
+        cat > common.sh <<_end_of_common_sh_
+        # set -x  # Enable for debug trace
+
+        case "${{ inputs.lcc_version }}" in
+          1.29.12)
+            lcc_link="$d/2025-06-27/cross-sp-1.29.12.e2k-v6.2c3.linux-6.1_64.tgz"
+            lcc_tarname="cross-sp-1.29.12.e2k-v6.2c3.linux-6.1_64.tgz"
+            lcc_dirname="lcc-1.29.12.e2k-v6.2c3.linux-6.1"
+            lcc_sha512="ddf87a57fa5a250bbf9351ab020e10b4f5a442139b8d9401dc79426bb9c94699\
+        5228624d2c1a9b272828c5b8b95b1053e26a35ff45b4e599c3336f5b55a82a48"
+            ;;
+          1.27.23)
+            lcc_link="$d/2025-05-12/cross-sp-rel-1.27.23.e2k-v5.5.10_64.tgz"
+            lcc_tarname="cross-sp-rel-1.27.23.e2k-v5.5.10_64.tgz"
+            lcc_dirname="lcc-1.27.23.e2k-v5.5.10"
+            lcc_sha512="5609da5afcc3b6d072786a4eb9799ce277767ec80fcc108ee276ec5af8bca581\
+        1ffefa692f37e45196bcdcf87b109701bfb04c71ae0c25dfffc1f90437bd07fe"
+            ;;
+          *)
+            echo "Install lcc-${{ inputs.lcc_version }} unimplemented" 1>&2
+            false
+            exit 1
+        esac
+        if [ -n "${{ inputs.lcc_link }}" ] ; then
+          lcc_link="${{ inputs.lcc_link }}"
+        fi
+        if [ -n "${{ inputs.lcc_tarname }}" ] ; then
+          lcc_tarname="${{ inputs.lcc_tarname }}"
+        fi
+        if [ -n "${{ inputs.lcc_dirname }}" ] ; then
+          lcc_dirname="${{ inputs.lcc_dirname }}"
+        fi
+        if [ -n "${{ inputs.lcc_sha512 }}" ] ; then
+          lcc_sha512="${{ inputs.lcc_sha512 }}"
+        fi
+        case "${{ inputs.qemu_e2k_version }}" in
+          1.1)
+            qemu_e2k_static_link="$d/2026-02-24/qemu-e2k-static"
+            qemu_e2k_static_date="2026-02-24"
+            qemu_e2k_static_sha512="185c32335d23193c699a3af2606d46af72c7cd44f9a6c7d41fa0ac7da4481d77\
+        1ad9f41d158b1f869e4eef8aec2de375e8ebabe08eaf4e776653f524aa3d2d43"
+            ;;
+          1.0)
+            qemu_e2k_static_link="$d/2025-12-26/qemu-e2k-static"
+            qemu_e2k_static_date="2025-12-26"
+            qemu_e2k_static_sha512="4ce9a9e6a29f3ad55e57cd5565560bc2b51dfb4b725141b475505596d71d4e38\
+        1063a00c4256c553e911aecbd03963f65a14c2d299f7d6af6ac0d09982b59a01"
+            ;;
+          *)
+            echo "Install qemu-e2k-static ${{ inputs.qemu_e2k_version }} unimplemented" 1>&2
+            false
+            exit 1
+        esac
+        if [ -n "${{ inputs.qemu_e2k_static_link }}" ] ; then
+          qemu_e2k_static_link="${{ inputs.qemu_e2k_static_link }}"
+        fi
+        if [ -n "${{ inputs.qemu_e2k_static_date }}" ] ; then
+          qemu_e2k_static_date="${{ inputs.qemu_e2k_static_date }}"
+        fi
+        if [ -n "${{ inputs.qemu_e2k_static_sha512 }}" ] ; then
+          qemu_e2k_static_sha512="${{ inputs.qemu_e2k_static_sha512 }}"
+        fi
+        _end_of_common_sh_
+
+        . common.sh
+
+        mkdir -p /opt/mcst
+        mkdir -p /usr/local/bin
+        ( echo "lcc-path=/opt/mcst"
+          echo "lcc-key=cache-lcc-$lcc_dirname"
+          echo "e2k-path=/usr/local/bin/qemu-e2k-static"
+          echo "e2k-key=cache-qemu-e2k-static-$qemu_e2k_static_date"
+        ) >> $GITHUB_OUTPUT
+
     # Get lcc from github actions cache or download it from mcst.dev and save to cache
-    - name: Cache lcc crosscompiler
+    - name: Restore cache lcc crosscompiler
       id: cache-lcc
-      uses: actions/cache@v5
-      env:
-        cache-name: cache-lcc
+      uses: actions/cache/restore@v5
       with:
-        path: /opt/mcst
-        key: ${{ env.cache-name }}-${{ inputs.lcc_dirname }}
+        path: ${{ steps.cp.outputs.lcc-path }}
+        key: ${{ steps.cp.outputs.lcc-key }}
 
     - if: ${{ steps.cache-lcc.outputs.cache-hit != 'true' }}
       name: Install lcc
       continue-on-error: false
       shell: bash
       run: |
-          wget -q ${{ inputs.lcc_link }}
-          tar -xzf ${{ inputs.lcc_tarname }} -C /tmp
-          mv /tmp/opt/mcst /opt
-          rm -r ${{ inputs.lcc_tarname }} /tmp/opt
+        . common.sh
+        wget -q "$lcc_link"
+        echo "$lcc_sha512  $lcc_tarname" \
+          | shasum --strict -a 512 -c -
+        tar -xzf "$lcc_tarname" -C /tmp
+        mv /tmp/opt/mcst /opt
+        rm -r "$lcc_tarname" /tmp/opt
+
+    - name: Save cached lcc crosscompiler
+      if: steps.cache-lcc.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ steps.cp.outputs.lcc-path }}
+        key: ${{ steps.cp.outputs.lcc-key }}
 
     # Get qemu-e2k-static from github actions cache or download from mcst.dev and save to cache
-    - name: Cache qemu-e2k-static
+    - name: Restore cache qemu-e2k-static
       id: cache-qemu-e2k-static
-      uses: actions/cache@v5
-      env:
-        cache-name: cache-qemu-e2k-static
+      uses: actions/cache/restore@v5
       with:
-        path: |
-          /usr/local/bin/qemu-e2k-static
-        key: ${{ env.cache-name }}
+        path: ${{ steps.cp.outputs.e2k-path }}
+        key: ${{ steps.cp.outputs.e2k-key }}
 
     - if: ${{ steps.cache-qemu-e2k-static.outputs.cache-hit != 'true' }}
       name: Install qemu-e2k-static
       continue-on-error: false
       shell: bash
       run: |
-        wget -q ${{ inputs.qemu_e2k_static_link }}
+        . common.sh
+        wget -q "$qemu_e2k_static_link"
+        echo "$qemu_e2k_static_sha512  qemu-e2k-static" \
+          | shasum --strict -a 512 -c -
         chmod +x qemu-e2k-static
         mv qemu-e2k-static /usr/local/bin
+
+    - name: Save cached qemu-e2k-static
+      if: steps.cache-qemu-e2k-static.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ${{ steps.cp.outputs.e2k-path }}
+        key: ${{ steps.cp.outputs.e2k-key }}
 
     # Add symlinks to lcc
     - name: Add lcc bin dir to PATH
       shell: bash
       run: |
-        ln -sf /opt/mcst/${{ inputs.lcc_dirname }}/bin/lcc /usr/local/bin/lcc
-        ln -sf /opt/mcst/${{ inputs.lcc_dirname }}/bin/l++ /usr/local/bin/l++
-    
+        . common.sh
+        ln -sf "/opt/mcst/$lcc_dirname/bin/lcc" /usr/local/bin/lcc
+        ln -sf "/opt/mcst/$lcc_dirname/bin/l++" /usr/local/bin/l++
+
     # Add short wrapper to qemu-e2k-static
     - name: Create e2k script
       shell: bash
       run: |
+        . common.sh
         echo "#!" > /usr/local/bin/e2k
-        echo "qemu-e2k-static -L /opt/mcst/${{ inputs.lcc_dirname }}/fs -- \"\$@\"" >> /usr/local/bin/e2k
+        echo "qemu-e2k-static -L \"/opt/mcst/$lcc_dirname/fs\" -- \"\$@\"" >> /usr/local/bin/e2k
         chmod +x /usr/local/bin/e2k
