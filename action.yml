@@ -35,15 +35,18 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v6
-
     - name: "Cache parameters: keys & paths"
       id: cp
       shell: bash
       run: |
+        common_sh="${{ github.action_path }}/tmp/common.sh"
+        echo "common_sh=$common_sh" >> $GITHUB_OUTPUT
+
+        mkdir "`dirname \"$common_sh\"`"
+
         d="https://dev.mcst.ru/downloads"
 
-        cat > common.sh <<_end_of_common_sh_
+        cat > "$common_sh" <<_end_of_common_sh_
         # set -x  # Enable for debug trace
 
         case "${{ inputs.lcc_version }}" in
@@ -107,7 +110,7 @@ runs:
         fi
         _end_of_common_sh_
 
-        . common.sh
+        . "$common_sh"
 
         mkdir -p /opt/mcst
         mkdir -p /usr/local/bin
@@ -130,7 +133,7 @@ runs:
       continue-on-error: false
       shell: bash
       run: |
-        . common.sh
+        . "${{ steps.cp.outputs.common_sh }}"
         wget -q "$lcc_link"
         echo "$lcc_sha512  $lcc_tarname" \
           | shasum --strict -a 512 -c -
@@ -158,7 +161,7 @@ runs:
       continue-on-error: false
       shell: bash
       run: |
-        . common.sh
+        . "${{ steps.cp.outputs.common_sh }}"
         wget -q "$qemu_e2k_static_link"
         echo "$qemu_e2k_static_sha512  qemu-e2k-static" \
           | shasum --strict -a 512 -c -
@@ -176,7 +179,7 @@ runs:
     - name: Add lcc bin dir to PATH
       shell: bash
       run: |
-        . common.sh
+        . "${{ steps.cp.outputs.common_sh }}"
         ln -sf "/opt/mcst/$lcc_dirname/bin/lcc" /usr/local/bin/lcc
         ln -sf "/opt/mcst/$lcc_dirname/bin/l++" /usr/local/bin/l++
 
@@ -184,7 +187,7 @@ runs:
     - name: Create e2k script
       shell: bash
       run: |
-        . common.sh
+        . "${{ steps.cp.outputs.common_sh }}"
         echo "#!" > /usr/local/bin/e2k
         echo "qemu-e2k-static -L \"/opt/mcst/$lcc_dirname/fs\" -- \"\$@\"" >> /usr/local/bin/e2k
         chmod +x /usr/local/bin/e2k
