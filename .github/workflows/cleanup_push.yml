@@ -1,0 +1,36 @@
+---
+# vim:set sw=2 ts=8 et fileencoding=utf8:
+# SPDX-License-Identifier: BSD-2-Clause
+# SPDX-FileCopyrightText: 2026 Сергей Леонтьев (leo@sai.msu.ru)
+
+name: Очистка кэш при push
+
+# https://github.com/marketplace/actions/clean-cache
+# https://github.com/OpenGrabeso/clean-cache
+#
+# Мне кажется, что можно было бы реагировать на `delete: branches:`, но...?
+#
+# TODO: Однако, в типовом сценарии, при закрытии PR кэш можно удалять, т.к. и
+# ветку вскорости удалят (см.: `pr_cleanup.yml`).
+#
+# "Конкуренты" `https://github.com/marketplace/actions/clean-cache-action`
+# поддерживают только сценарий "закрыть PR"
+#
+# Вероятно, это альтернативный сценарий очистки кэш, для альтернативной
+# организации процесса, отличающегося от простой схемы "ветка
+# исправлений-слияние".
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches: ['**']
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: opengrabeso/clean-cache@v1.1.0
+        with:
+          post: true
+          keep: 2
