@@ -1,0 +1,26 @@
+---
+# vim:set sw=2 ts=8 et fileencoding=utf8:
+# SPDX-License-Identifier: BSD-2-Clause
+# SPDX-FileCopyrightText: 2026 Сергей Леонтьев (leo@sai.msu.ru)
+
+name: Очистка PR
+
+# https://github.com/marketplace/actions/clean-cache
+# https://github.com/OpenGrabeso/clean-cache
+
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    steps:
+
+      - name: Clean cache for the branch name
+        uses: opengrabeso/clean-cache@v1.1.0
